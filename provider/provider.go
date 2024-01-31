@@ -1,9 +1,7 @@
 package provider
 
 import (
-	"context"
-
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 // Provider returns a Terraform ResourceProvider.
@@ -35,4 +33,3 @@ type ProviderConfig struct {
 }
 
 // Resource definitions and CRUD functions go here...
-
