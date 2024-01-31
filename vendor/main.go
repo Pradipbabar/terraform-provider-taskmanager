@@ -1,104 +1,146 @@
 package main
 
 import (
-	"html/template"
+	"encoding/json"
+	"fmt"
 	"net/http"
-	"strconv"
-	"strings"
+	"sync"
 )
 
-// Task struct represents a task in the todo list
+// Task represents a simple task structure.
 type Task struct {
-	ID     int
-	Name   string
-	Status bool
+	ID     int    `json:"id"`
+	Name   string `json:"name"`
+	IsDone bool   `json:"is_done"`
 }
 
-var tasksMap map[int]Task
-var taskIDCounter int
+// TaskStore is an in-memory data store for tasks.
+type TaskStore struct {
+	mu    sync.RWMutex
+	tasks map[int]Task
+}
 
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-	tmpl, err := template.ParseFiles("index.html")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+// NewTaskStore creates a new TaskStore instance.
+func NewTaskStore() *TaskStore {
+	return &TaskStore{
+		tasks: make(map[int]Task),
+	}
+}
+
+// CreateTask adds a new task to the store.
+func (s *TaskStore) CreateTask(task Task) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	task.ID = len(s.tasks) + 1
+	s.tasks[task.ID] = task
+	return task.ID
+}
+
+// GetTask retrieves a task by ID from the store.
+func (s *TaskStore) GetTask(id int) (Task, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	task, ok := s.tasks[id]
+	return task, ok
+}
+
+// UpdateTask updates an existing task in the store.
+func (s *TaskStore) UpdateTask(id int, task Task) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, ok := s.tasks[id]
+	if !ok {
+		return false
+	}
+
+	task.ID = id
+	s.tasks[id] = task
+	return true
+}
+
+// DeleteTask removes a task from the store by ID.
+func (s *TaskStore) DeleteTask(id int) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, ok := s.tasks[id]
+	if !ok {
+		return false
+	}
+
+	delete(s.tasks, id)
+	return true
+}
+
+// Handler function for handling task-related requests.
+func handleTasks(w http.ResponseWriter, r *http.Request, store *TaskStore) {
+	switch r.Method {
+	case http.MethodPost:
+		handleCreateTask(w, r, store)
+	case http.MethodGet:
+		handleGetTasks(w, r, store)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// Handler function for creating a new task.
+func handleCreateTask(w http.ResponseWriter, r *http.Request, store *TaskStore) {
+	var newTask Task
+	if err := json.NewDecoder(r.Body).Decode(&newTask); err != nil {
+		http.Error(w, "Failed to decode request body", http.StatusBadRequest)
 		return
 	}
 
-	var taskList []Task
-	for _, task := range tasksMap {
-		taskList = append(taskList, task)
-	}
-
-	err = tmpl.Execute(w, taskList)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	id := store.CreateTask(newTask)
+	w.WriteHeader(http.StatusCreated)
+	fmt.Fprintf(w, `{"id": %d}`, id)
 }
 
-func addHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodPost {
-		taskName := r.FormValue("task")
-		taskID := taskIDCounter
-		task := Task{ID: taskID, Name: taskName, Status: false}
-		tasksMap[taskID] = task
-		taskIDCounter++
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-
-	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-}
-
-func deleteHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodDelete {
-		taskIDStr := strings.TrimPrefix(r.URL.Path, "/delete/")
-		taskID, err := strconv.Atoi(taskIDStr)
+// Handler function for retrieving tasks.
+func handleGetTasks(w http.ResponseWriter, r *http.Request, store *TaskStore) {
+	idStr := r.URL.Query().Get("id")
+	if idStr != "" {
+		id, err := strconv.Atoi(idStr)
 		if err != nil {
-			http.Error(w, "Invalid task ID", http.StatusBadRequest)
+			http.Error(w, "Invalid ID parameter", http.StatusBadRequest)
 			return
 		}
 
-		if _, exists := tasksMap[taskID]; exists {
-			delete(tasksMap, taskID)
-		}
-
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-
-	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-}
-
-func updateHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodPut {
-		taskIDStr := strings.TrimPrefix(r.URL.Path, "/update/")
-		taskID, err := strconv.Atoi(taskIDStr)
-		if err != nil {
-			http.Error(w, "Invalid task ID", http.StatusBadRequest)
+		task, ok := store.GetTask(id)
+		if !ok {
+			http.Error(w, "Task not found", http.StatusNotFound)
 			return
 		}
 
-		taskName := r.FormValue("task")
-		if task, exists := tasksMap[taskID]; exists {
-			task.Name = taskName
-			tasksMap[taskID] = task
-		}
-
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(task)
 		return
 	}
 
-	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	// If no specific ID is provided, return all tasks.
+	tasks := make([]Task, 0, len(store.tasks))
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+	for _, task := range store.tasks {
+		tasks = append(tasks, task)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(tasks)
 }
 
 func main() {
-	tasksMap = make(map[int]Task)
-	taskIDCounter = 1
+	store := NewTaskStore()
 
-	http.HandleFunc("/", indexHandler)
-	http.HandleFunc("/add", addHandler)
-	http.HandleFunc("/delete/", deleteHandler)
-	http.HandleFunc("/update/", updateHandler)
+	http.HandleFunc("/tasks", func(w http.ResponseWriter, r *http.Request) {
+		handleTasks(w, r, store)
+	})
 
-	http.ListenAndServe(":8080", nil)
+	port := 8080
+	fmt.Printf("Server is running on :%d...\n", port)
+	http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 }
