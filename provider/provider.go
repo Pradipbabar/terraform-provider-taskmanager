@@ -1,0 +1,38 @@
+package provider
+
+import (
+	"context"
+
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+)
+
+// Provider returns a Terraform ResourceProvider.
+func Provider() *schema.Provider {
+	return &schema.Provider{
+		Schema: map[string]*schema.Schema{
+			"url": &schema.Schema{
+				Type:     schema.TypeString,
+				Required: true,
+			},
+		},
+		ResourcesMap: map[string]*schema.Resource{
+			"todo_task": resourceTask(),
+		},
+		ConfigureFunc: providerConfigure,
+	}
+}
+
+func providerConfigure(d *schema.ResourceData) (interface{}, error) {
+	// Retrieve the API URL from the provider configuration.
+	url := d.Get("url").(string)
+
+	// Normally, you would establish a connection to your backend service here.
+	return &ProviderConfig{URL: url}, nil
+}
+
+type ProviderConfig struct {
+	URL string
+}
+
+// Resource definitions and CRUD functions go here...
+
