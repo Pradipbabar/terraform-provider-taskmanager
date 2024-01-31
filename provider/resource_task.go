@@ -20,11 +20,11 @@ func resourceTask() *schema.Resource {
 		DeleteContext: resourceTaskDelete,
 
 		Schema: map[string]*schema.Schema{
-			"name": &schema.Schema{
+			"name": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"is_done": &schema.Schema{
+			"is_done": {
 				Type:     schema.TypeBool,
 				Optional: true,
 				Default:  false,
@@ -38,9 +38,7 @@ func resourceTaskCreate(ctx context.Context, d *schema.ResourceData, m interface
 	name := d.Get("name").(string)
 	isDone := d.Get("is_done").(bool)
 
-	// Call your API or perform the necessary logic to create the task.
 	apiURL := fmt.Sprintf("%s/tasks", config.URL)
-
 	requestBody := fmt.Sprintf(`{"name": "%s", "is_done": %t}`, name, isDone)
 
 	resp, err := http.Post(apiURL, "application/json", strings.NewReader(requestBody))
@@ -53,23 +51,20 @@ func resourceTaskCreate(ctx context.Context, d *schema.ResourceData, m interface
 		return diag.Errorf("Failed to create task. Status code: %d", resp.StatusCode)
 	}
 
-	// Parse the response to get the created task ID.
 	var responseData map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&responseData); err != nil {
 		return diag.FromErr(err)
 	}
 
 	taskID := int(responseData["id"].(float64))
-
 	d.SetId(strconv.Itoa(taskID))
+
 	return resourceTaskRead(ctx, d, m)
 }
 
 func resourceTaskRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	config := m.(*ProviderConfig)
 	taskID, _ := strconv.Atoi(d.Id())
-
-	// Call your API or perform the necessary logic to read the task details.
 	apiURL := fmt.Sprintf("%s/tasks/%d", config.URL, taskID)
 
 	resp, err := http.Get(apiURL)
@@ -82,7 +77,6 @@ func resourceTaskRead(ctx context.Context, d *schema.ResourceData, m interface{}
 		return diag.Errorf("Failed to read task. Status code: %d", resp.StatusCode)
 	}
 
-	// Parse the response to get the task details.
 	var taskDetails map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&taskDetails); err != nil {
 		return diag.FromErr(err)
@@ -100,9 +94,7 @@ func resourceTaskUpdate(ctx context.Context, d *schema.ResourceData, m interface
 	name := d.Get("name").(string)
 	isDone := d.Get("is_done").(bool)
 
-	// Call your API or perform the necessary logic to update the task.
 	apiURL := fmt.Sprintf("%s/tasks/%d", config.URL, taskID)
-
 	requestBody := fmt.Sprintf(`{"name": "%s", "is_done": %t}`, name, isDone)
 
 	req, err := http.NewRequest("PUT", apiURL, strings.NewReader(requestBody))
@@ -128,8 +120,6 @@ func resourceTaskUpdate(ctx context.Context, d *schema.ResourceData, m interface
 func resourceTaskDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	config := m.(*ProviderConfig)
 	taskID, _ := strconv.Atoi(d.Id())
-
-	// Call your API or perform the necessary logic to delete the task.
 	apiURL := fmt.Sprintf("%s/tasks/%d", config.URL, taskID)
 
 	req, err := http.NewRequest("DELETE", apiURL, nil)

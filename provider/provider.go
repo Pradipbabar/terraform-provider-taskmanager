@@ -8,7 +8,7 @@ import (
 func Provider() *schema.Provider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{
-			"url": &schema.Schema{
+			"url": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
@@ -28,6 +28,7 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 	return &ProviderConfig{URL: url}, nil
 }
 
+// ProviderConfig holds the configuration details for the provider.
 type ProviderConfig struct {
 	URL string
 }
