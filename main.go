@@ -65,64 +65,6 @@ func resourceTaskCreate(ctx context.Context, d *schema.ResourceData, m interface
 	isDone := d.Get("is_done").(bool)
 
 	// Call your API or perform the necessary logic to create the task.
-	// taskID := YourAPICreateFunction(config.URL, name, isDone)
-
-	taskID := 123 // Replace this with the actual task ID obtained from your API.
-
-	d.SetId(strconv.Itoa(taskID))
-	return resourceTaskRead(ctx, d, m)
-}
-
-func resourceTaskRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	config := m.(*ProviderConfig)
-	taskID, _ := strconv.Atoi(d.Id())
-
-	// Call your API or perform the necessary logic to read the task details.
-	// taskDetails := YourAPIReadFunction(config.URL, taskID)
-
-	taskDetails := map[string]interface{}{
-		"name":    "Task Name", // Replace this with the actual task name.
-		"is_done": false,       // Replace this with the actual task status.
-	}
-
-	d.Set("name", taskDetails["name"])
-	d.Set("is_done", taskDetails["is_done"])
-
-	return nil
-}
-
-func resourceTaskUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	config := m.(*ProviderConfig)
-	name := d.Get("name").(string)
-	isDone := d.Get("is_done").(bool)
-
-	// Call your API or perform the necessary logic to update the task.
-	// YourAPIUpdateFunction(config.URL, d.Id(), name, isDone)
-
-	return resourceTaskRead(ctx, d, m)
-}
-
-func resourceTaskDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	config := m.(*ProviderConfig)
-
-	// Call your API or perform the necessary logic to delete the task.
-	// YourAPIDeleteFunction(config.URL, d.Id())
-
-	return nil
-}
-
-func main() {
-	plugin.Serve(&plugin.ServeOpts{
-		ProviderFunc: Provider,
-	})
-}
-
-func resourceTaskCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	config := m.(*ProviderConfig)
-	name := d.Get("name").(string)
-	isDone := d.Get("is_done").(bool)
-
-	// Call your API or perform the necessary logic to create the task.
 	apiURL := fmt.Sprintf("%s/tasks", config.URL) // Assuming your API endpoint for creating tasks is "/tasks".
 
 	requestBody := fmt.Sprintf(`{"name": "%s", "is_done": %t}`, name, isDone)
@@ -148,6 +90,7 @@ func resourceTaskCreate(ctx context.Context, d *schema.ResourceData, m interface
 	d.SetId(strconv.Itoa(taskID))
 	return resourceTaskRead(ctx, d, m)
 }
+
 
 func resourceTaskRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	config := m.(*ProviderConfig)
@@ -234,3 +177,8 @@ func resourceTaskDelete(ctx context.Context, d *schema.ResourceData, m interface
 	return nil
 }
 
+func main() {
+	plugin.Serve(&plugin.ServeOpts{
+		ProviderFunc: Provider,
+	})
+}
